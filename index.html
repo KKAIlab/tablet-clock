@@ -105,10 +105,11 @@
     transform: scaleX(0);
   }
   #minute-line .eye {
+    /* 点睛之笔：红为阳、为当下。浓墨已逝、淡墨未至，唯此一点是活的 */
     position: absolute; top: 50%; left: 0;
-    width: 7px; height: 7px; border-radius: 50%;
-    background: var(--fg);
-    box-shadow: 0 0 9px 1px color-mix(in srgb, var(--fg) 55%, transparent);
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 9px 1px color-mix(in srgb, var(--accent) 60%, transparent);
     transform: translate(-50%, -50%);
   }
 
@@ -124,7 +125,8 @@
   #pomo-view { display: flex; flex-direction: column; align-items: center; }
   #pomo-view[hidden], #clock-view[hidden] { display: none; }
   #ring-wrap { position: relative; width: min(52vw, 62vh); }
-  #ring { width: 100%; height: auto; display: block; transform: rotate(-90deg); }
+  /* 顺时针即流逝："如钟表前行，一去不返"——已逝的弧从正上方顺时针扫过 */
+  #ring { width: 100%; height: auto; display: block; transform: rotate(90deg) scaleX(-1); }
   #ring .bg { fill: none; stroke: var(--track); stroke-width: 0.8; }
   #ring .fg {
     fill: none; stroke: var(--accent); stroke-width: 0.8; stroke-linecap: round;
@@ -224,7 +226,7 @@ const stage = $('stage'), pomoBtn = $('pomo-btn'), wakeWarn = $('wake-warn');
 
 const RING_CIRC = 2 * Math.PI * 46;
 
-const BUILD = 'v7-nongmo-0721';
+const BUILD = 'v8-final';
 let pomo = createIdle();
 window.__pomoPhase = () => pomo.phase; // 调试钩子：供自动化测试读取状态机相位
 
@@ -236,16 +238,9 @@ function setText(el, s) {
 
 // ---- 水墨阴阳主题引擎 ----
 // 夜=青墨池(阴)，昼=宣纸(阳)，RGB 插值经过中性灰——正合水墨"墨分五色"的过渡
-// 阳值：0=纯阴(夜) 1=纯阳(昼)，黎明 5:00-7:30 渐醒，黄昏 17:00-20:00 渐眠
-const YANG_STOPS = [[0, 0], [5, 0], [7.5, 1], [17, 1], [20, 0], [24, 0]];
-
-function stopsAt(stops, x) {
-  for (let i = 1; i < stops.length; i++) {
-    const [x0, v0] = stops[i - 1], [x1, v1] = stops[i];
-    if (x <= x1) return v0 + (v1 - v0) * (x - x0) / (x1 - x0);
-  }
-  return stops[stops.length - 1][1];
-}
+// 子午线消长：阳值随日轮连续起伏——子时(0点)阴极 0，午时(12点)阳极 1，
+// "子到午阳长阴消，午到子阴长阳消"，一日即一次完整呼吸
+const yangAt = (hourFloat) => (1 - Math.cos(Math.PI * hourFloat / 12)) / 2;
 const lerp = (a, b, t) => a + (b - a) * t;
 const mixHex = (a, b, t) => {
   const ch = (s, i) => parseInt(s.slice(i, i + 2), 16);
@@ -260,7 +255,7 @@ const PALETTE = {
   track: ['#262823', '#cfc8b6'], accent: ['#cf4a2e', '#a83a24'],
 };
 function applyTheme(hourFloat) {
-  const t = stopsAt(YANG_STOPS, hourFloat);
+  const t = yangAt(hourFloat);
   const st = document.body.style;
   for (const k of Object.keys(PALETTE)) {
     st.setProperty('--' + k, mixHex(PALETTE[k][0], PALETTE[k][1], t));
@@ -335,8 +330,10 @@ function frame() {
   } else {
     const rem = pomo.phase === 'done' ? 0 : remainingMs(pomo, now.getTime());
     setText(pomoTimeEl, formatCountdown(rem));
+    // 运行 8 秒后提示收敛为三个字——专注期间屏幕只剩环、数字与它
     setText(pomoStatusEl,
-      pomo.phase === 'running' ? '专注中 · 点一下暂停 · 快点两下结束'
+      pomo.phase === 'running'
+        ? (POMODORO_MS - rem > 8000 ? '专 注 中' : '专注中 · 点一下暂停 · 快点两下结束')
       : pomo.phase === 'paused' ? '已暂停 · 点一下继续 · 快点两下结束'
       : '时间到 · 点一下返回时钟');
     const frac = rem / POMODORO_MS;
