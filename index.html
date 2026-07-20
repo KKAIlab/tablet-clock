@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#000000">
+<meta name="theme-color" content="#010208">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <title>时钟</title>
@@ -15,73 +15,199 @@
      否则快速连点会被当成缩放手势，click 永远不派发 */
   html, body { height: 100%; touch-action: manipulation; }
   body {
-    background: #000;
-    color: #e8e8ec;
+    /* --h 由 JS 按一天中的时刻缓慢漂移：深夜靛蓝 → 白昼青蓝 → 黄昏经紫粉滑向琥珀 */
+    background:
+      radial-gradient(ellipse 95% 75% at 50% 36%,
+        hsl(var(--h, 232) 30% 9%) 0%,
+        hsl(var(--h, 232) 35% 5%) 48%,
+        #010208 100%);
+    color: #f2f3f7;
     font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "PingFang SC", sans-serif;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
     -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
   }
-  #stage { text-align: center; transition: transform 2s ease; }
+
+  /* 呼吸柔光：7 秒一息，近似静息呼吸节律 */
+  #glow {
+    position: fixed; left: 50%; top: 38%;
+    width: 92vw; height: 64vh;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(closest-side,
+      hsl(var(--h, 232) 60% 60% / 0.10), transparent 72%);
+    animation: breathe 7s ease-in-out infinite;
+    pointer-events: none;
+  }
+  @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+  #stage {
+    position: relative; text-align: center;
+    transition: transform 2s ease;
+    display: flex; flex-direction: column; align-items: center;
+  }
+
+  /* ---- 时钟视图 ---- */
   #time {
-    font-size: clamp(80px, 21vw, 40vh);
-    font-weight: 200;
+    font-size: clamp(96px, 26vw, 46vh);
+    font-weight: 100;
     line-height: 1;
-    letter-spacing: 0.02em;
+    letter-spacing: 0.01em;
     font-variant-numeric: tabular-nums;
   }
-  #date {
-    font-size: clamp(20px, 3.5vw, 7vh);
-    font-weight: 300;
-    color: #9a9aa2;
-    margin-top: 3vh;
+  #time .colon {
+    animation: colonbreathe 2s ease-in-out infinite;
+    position: relative; top: -0.06em;
   }
+  @keyframes colonbreathe { 0%, 100% { opacity: 1; } 50% { opacity: .22; } }
+
+  /* 秒的具象：一条发丝线，每分钟从左到右缓缓填满——时间在流逝 */
+  #minute-line {
+    width: min(58vw, 72vh);
+    height: 2px; border-radius: 1px;
+    margin-top: 6.5vh;
+    background: #1c2030;
+    overflow: hidden;
+  }
+  #minute-line .fill {
+    display: block; width: 100%; height: 100%;
+    background: linear-gradient(90deg, hsl(var(--h, 232) 40% 70% / .55), #d9dbe6);
+    transform-origin: left center;
+    transform: scaleX(0);
+  }
+
+  #date {
+    font-size: clamp(15px, 2.2vw, 4.2vh);
+    font-weight: 300;
+    color: #7c8095;
+    letter-spacing: 0.42em; text-indent: 0.42em;  /* indent 抵消末字符字距，保持视觉居中 */
+    margin-top: 5.5vh;
+  }
+
+  /* ---- 番茄钟视图：极细圆环 ---- */
+  #pomo-view { display: flex; flex-direction: column; align-items: center; }
+  #pomo-view[hidden], #clock-view[hidden] { display: none; }
+  #ring-wrap { position: relative; width: min(52vw, 62vh); }
+  #ring { width: 100%; height: auto; display: block; transform: rotate(-90deg); }
+  #ring .bg { fill: none; stroke: #1c2030; stroke-width: 0.8; }
+  #ring .fg {
+    fill: none; stroke: #ffa63e; stroke-width: 0.8; stroke-linecap: round;
+    stroke-dasharray: 289.03;  /* 2π × 46，与 r=46 对应 */
+  }
+  body.mode-paused #ring .fg { stroke: #7c8095; }
+  #pomo-time {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(60px, 12vw, 21vh);
+    font-weight: 100;
+    font-variant-numeric: tabular-nums;
+  }
+  body.mode-paused #pomo-time { color: #7c8095; }
+  #pomo-status {
+    font-size: clamp(14px, 1.9vw, 3.6vh);
+    font-weight: 300;
+    color: #7c8095;
+    letter-spacing: 0.42em; text-indent: 0.42em;
+    margin-top: 5vh;
+  }
+
+  /* 结束提醒：柔和的琥珀色呼吸，而非生硬闪屏 */
+  body.mode-done::after {
+    content: ''; position: fixed; inset: 0;
+    background: #ffa63e; pointer-events: none;
+    animation: doneglow 1.1s ease-in-out infinite alternate;
+  }
+  @keyframes doneglow { from { opacity: 0; } to { opacity: .16; } }
+
   #pomo-btn {
-    /* 加大并抬离屏幕底缘：iPad 底部是系统手势区，贴边点按可能被系统吃掉 */
+    /* 抬离屏幕底缘：iPad 底部是系统手势区，贴边点按可能被系统吃掉 */
     position: fixed;
     right: calc(5vw + env(safe-area-inset-right));
     bottom: calc(7vh + env(safe-area-inset-bottom));
     width: 76px; height: 76px; border-radius: 50%;
-    border: 1.5px solid #333; background: rgba(255,255,255,0.04); color: #9a9aa2;
-    font-size: 26px;
+    border: 1.5px solid #262b3d; background: rgba(255,255,255,0.03); color: #7c8095;
+    font-size: 24px;
     touch-action: manipulation;
+    transition: opacity 1s ease;
   }
   #pomo-btn[hidden] { display: none; }
-  body.mode-focus #time { color: #ff9f0a; }
-  body.mode-paused #time { color: #9a9aa2; }
-  body.mode-done { animation: flash 0.8s steps(2) infinite; }
-  @keyframes flash {
-    0%   { background: #000; }
-    100% { background: #4d2f00; }
-  }
+
   #wake-warn {
-    position: fixed; left: 4vw; bottom: 4vh;
-    font-size: 18px; color: #55555c;
+    position: fixed;
+    left: calc(5vw + env(safe-area-inset-left));
+    bottom: calc(7vh + env(safe-area-inset-bottom));
+    font-size: 16px; color: #454a5e;
   }
   #wake-warn[hidden] { display: none; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #glow, #time .colon, body.mode-done::after { animation: none; }
+  }
 </style>
 </head>
 <body>
+  <div id="glow"></div>
   <div id="stage">
-    <div id="time">--:--:--</div>
-    <div id="date"></div>
+    <div id="clock-view">
+      <div id="time"><span id="hh">--</span><span class="colon">:</span><span id="mm">--</span></div>
+      <div id="minute-line"><span class="fill"></span></div>
+      <div id="date"></div>
+    </div>
+    <div id="pomo-view" hidden>
+      <div id="ring-wrap">
+        <svg id="ring" viewBox="0 0 100 100">
+          <circle class="bg" cx="50" cy="50" r="46"/>
+          <circle class="fg" cx="50" cy="50" r="46"/>
+        </svg>
+        <div id="pomo-time">25:00</div>
+      </div>
+      <div id="pomo-status"></div>
+    </div>
   </div>
   <button id="pomo-btn" hidden aria-label="番茄钟">▶</button>
   <span id="wake-warn" hidden title="屏幕常亮不可用，请在设置中将自动锁定设为永不">☾ 常亮未生效</span>
 
 <script type="module">
 import {
-  formatTime, formatDateLine,
+  POMODORO_MS, formatTime, formatDateLine,
   createIdle, transition, remainingMs, formatCountdown,
 } from './logic.js';
 
-const timeEl = document.getElementById('time');
-const dateEl = document.getElementById('date');
-const stage = document.getElementById('stage');
-const pomoBtn = document.getElementById('pomo-btn');
+const $ = (id) => document.getElementById(id);
+const hhEl = $('hh'), mmEl = $('mm'), dateEl = $('date');
+const clockView = $('clock-view'), pomoView = $('pomo-view');
+const lineFill = document.querySelector('#minute-line .fill');
+const ringFg = document.querySelector('#ring .fg');
+const pomoTimeEl = $('pomo-time'), pomoStatusEl = $('pomo-status');
+const stage = $('stage'), pomoBtn = $('pomo-btn'), wakeWarn = $('wake-warn');
+
+const RING_CIRC = 2 * Math.PI * 46;
 
 let pomo = createIdle();
-let lastTime = '', lastDate = '';
+window.__pomoPhase = () => pomo.phase; // 调试钩子：供自动化测试读取状态机相位
+
+// 文本节点只在内容变化时写入，避免每帧无谓重绘
+const textCache = new Map();
+function setText(el, s) {
+  if (textCache.get(el) !== s) { el.textContent = s; textCache.set(el, s); }
+}
+
+// ---- 一天之中的色相漂移 ----
+// 关键帧（小时 → 色相，允许 >360 以规定插值走向）：
+// 深夜靛蓝 232 → 清晨过渡到白昼青蓝 204 → 黄昏沿紫→粉→琥珀(390≡30) → 入夜回到靛蓝(592≡232)
+const HUE_STOPS = [[0, 232], [5, 232], [7.5, 204], [15.5, 204], [18.5, 390], [20.5, 592], [24, 592]];
+function hueAt(hourFloat) {
+  for (let i = 1; i < HUE_STOPS.length; i++) {
+    const [h0, v0] = HUE_STOPS[i - 1], [h1, v1] = HUE_STOPS[i];
+    if (hourFloat <= h1) return (v0 + (v1 - v0) * (hourFloat - h0) / (h1 - h0)) % 360;
+  }
+  return 232;
+}
+let lastHue = -1;
+function updateHue(now) {
+  const hue = Math.round(hueAt(now.getHours() + now.getMinutes() / 60));
+  if (hue !== lastHue) { document.body.style.setProperty('--h', hue); lastHue = hue; }
+}
 
 // ---- 提示音：iOS 需用户交互后解锁 AudioContext，在点击 ▶ 时初始化 ----
 let audioCtx = null;
@@ -109,41 +235,55 @@ function dispatch(event) {
   const prevPhase = pomo.phase;
   pomo = transition(pomo, event, Date.now());
   if (prevPhase === 'running' && pomo.phase === 'done') beep();
-  render();
 }
 
-function render() {
+// ---- 渲染循环：rAF 驱动，秒线与圆环亚秒级平滑推进 ----
+function frame() {
   const now = new Date();
-  let t, d;
-  if (pomo.phase === 'idle') {
-    t = formatTime(now); d = formatDateLine(now);
-  } else if (pomo.phase === 'done') {
-    t = '00:00'; d = '时间到！点击返回时钟';
-  } else {
-    t = formatCountdown(remainingMs(pomo, now.getTime()));
-    d = pomo.phase === 'running' ? '专注中 · 单击暂停 · 双击重置'
-                                 : '已暂停 · 单击继续 · 双击重置';
-  }
-  if (t !== lastTime) { timeEl.textContent = t; lastTime = t; }
-  if (d !== lastDate) { dateEl.textContent = d; lastDate = d; }
-  document.body.classList.toggle('mode-focus', pomo.phase === 'running');
+  dispatch('tick');
+
+  const active = pomo.phase !== 'idle';
+  clockView.hidden = active;
+  pomoView.hidden = !active;
+  pomoBtn.hidden = active;
   document.body.classList.toggle('mode-paused', pomo.phase === 'paused');
   document.body.classList.toggle('mode-done', pomo.phase === 'done');
-  pomoBtn.hidden = pomo.phase !== 'idle';
-}
 
-render();
-setInterval(() => dispatch('tick'), 250); // dispatch 内部处理 running→done 的蜂鸣
+  if (!active) {
+    const [h, m] = formatTime(now).split(':');
+    setText(hhEl, h); setText(mmEl, m);
+    setText(dateEl, formatDateLine(now));
+    // 秒的流逝：0→60 秒连续填满发丝线
+    const p = (now.getSeconds() + now.getMilliseconds() / 1000) / 60;
+    lineFill.style.transform = `scaleX(${p.toFixed(4)})`;
+  } else {
+    const rem = pomo.phase === 'done' ? 0 : remainingMs(pomo, now.getTime());
+    setText(pomoTimeEl, formatCountdown(rem));
+    setText(pomoStatusEl,
+      pomo.phase === 'running' ? '专注中 · 点一下暂停 · 快点两下结束'
+      : pomo.phase === 'paused' ? '已暂停 · 点一下继续 · 快点两下结束'
+      : '时间到 · 点一下返回时钟');
+    const frac = rem / POMODORO_MS;
+    ringFg.style.strokeDashoffset = String(RING_CIRC * (1 - frac));
+  }
+  updateHue(now);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// 逻辑心跳：后台标签页/被遮挡时 rAF 完全停摆，但 setInterval 仍会执行（≥1s 节流）。
+// 保证番茄钟到点判定与蜂鸣不依赖页面可见性；DOM 写入有缓存，重复调用零开销
+setInterval(() => dispatch('tick'), 1000);
 
 // ---- 交互 ----
 pomoBtn.addEventListener('click', (e) => {
-  e.stopPropagation(); // 不触发 body 的单击逻辑
+  e.stopPropagation();
   ensureAudio();
   dispatch('toggle');  // idle → running
 });
 
 // 单击/双击并存：iOS Safari 不触发 dblclick 事件，因此自实现点按计数——
-// 300ms 窗口内 1 次 = 暂停/继续，≥2 次 = 重置
+// 350ms 窗口内 1 次 = 暂停/继续，≥2 次 = 重置
 let tapCount = 0, tapTimer = null;
 document.body.addEventListener('click', (e) => {
   if (e.target === pomoBtn) return; // ▶ 按钮单独处理
@@ -154,7 +294,7 @@ document.body.addEventListener('click', (e) => {
   tapTimer = setTimeout(() => {
     const n = tapCount; tapCount = 0;
     if (n >= 2) dispatch('reset'); else dispatch('toggle');
-  }, 300);
+  }, 350);
 });
 
 // 防烧屏：每分钟整体随机位移 ±8px
@@ -165,7 +305,6 @@ setInterval(() => {
 }, 60000);
 
 // ---- Screen Wake Lock：保持屏幕常亮，失败静默降级为角落提示 ----
-const wakeWarn = document.getElementById('wake-warn');
 let wakeLock = null;
 async function requestWakeLock() {
   try {
