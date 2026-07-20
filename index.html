@@ -36,6 +36,13 @@
     font-size: 22px; opacity: 0.5;
   }
   #pomo-btn[hidden] { display: none; }
+  body.mode-focus #time { color: #ff9f0a; }
+  body.mode-paused #time { color: #9a9aa2; }
+  body.mode-done { animation: flash 0.8s steps(2) infinite; }
+  @keyframes flash {
+    0%   { background: #000; }
+    100% { background: #4d2f00; }
+  }
 </style>
 </head>
 <body>
@@ -46,22 +53,90 @@
   <button id="pomo-btn" hidden aria-label="番茄钟">▶</button>
 
 <script type="module">
-import { formatTime, formatDateLine } from './logic.js';
+import {
+  formatTime, formatDateLine,
+  createIdle, transition, remainingMs, formatCountdown,
+} from './logic.js';
 
 const timeEl = document.getElementById('time');
 const dateEl = document.getElementById('date');
 const stage = document.getElementById('stage');
+const pomoBtn = document.getElementById('pomo-btn');
 
+let pomo = createIdle();
 let lastTime = '', lastDate = '';
+
+// ---- 提示音：iOS 需用户交互后解锁 AudioContext，在点击 ▶ 时初始化 ----
+let audioCtx = null;
+function ensureAudio() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+}
+function beep() {
+  if (!audioCtx) return;
+  const t0 = audioCtx.currentTime;
+  for (let i = 0; i < 3; i++) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.frequency.value = 880;
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    const t = t0 + i * 0.35;
+    gain.gain.setValueAtTime(0.0001, t);
+    gain.gain.exponentialRampToValueAtTime(0.4, t + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    osc.start(t); osc.stop(t + 0.3);
+  }
+}
+
+function dispatch(event) {
+  const prevPhase = pomo.phase;
+  pomo = transition(pomo, event, Date.now());
+  if (prevPhase === 'running' && pomo.phase === 'done') beep();
+  render();
+}
+
 function render() {
   const now = new Date();
-  const t = formatTime(now);
-  const d = formatDateLine(now);
-  if (t !== lastTime) { timeEl.textContent = t; lastTime = t; }   // 秒变才写 DOM
+  let t, d;
+  if (pomo.phase === 'idle') {
+    t = formatTime(now); d = formatDateLine(now);
+  } else if (pomo.phase === 'done') {
+    t = '00:00'; d = '时间到！点击返回时钟';
+  } else {
+    t = formatCountdown(remainingMs(pomo, now.getTime()));
+    d = pomo.phase === 'running' ? '专注中 · 单击暂停 · 双击重置'
+                                 : '已暂停 · 单击继续 · 双击重置';
+  }
+  if (t !== lastTime) { timeEl.textContent = t; lastTime = t; }
   if (d !== lastDate) { dateEl.textContent = d; lastDate = d; }
+  document.body.classList.toggle('mode-focus', pomo.phase === 'running');
+  document.body.classList.toggle('mode-paused', pomo.phase === 'paused');
+  document.body.classList.toggle('mode-done', pomo.phase === 'done');
+  pomoBtn.hidden = pomo.phase !== 'idle';
 }
+
 render();
-setInterval(render, 250);
+setInterval(() => dispatch('tick'), 250); // dispatch 内部处理 running→done 的蜂鸣
+
+// ---- 交互 ----
+pomoBtn.addEventListener('click', (e) => {
+  e.stopPropagation(); // 不触发 body 的单击逻辑
+  ensureAudio();
+  dispatch('toggle');  // idle → running
+});
+
+// 单击/双击并存：单击延迟 250ms 执行，双击到来则取消，避免暂停/继续闪一下
+let clickTimer = null;
+document.body.addEventListener('click', () => {
+  if (pomo.phase === 'idle') return;
+  if (pomo.phase === 'done') { dispatch('toggle'); return; } // 任意点击关闭提醒
+  clearTimeout(clickTimer);
+  clickTimer = setTimeout(() => dispatch('toggle'), 250);
+});
+document.body.addEventListener('dblclick', () => {
+  clearTimeout(clickTimer);
+  if (pomo.phase !== 'idle') dispatch('reset');
+});
 
 // 防烧屏：每分钟整体随机位移 ±8px
 setInterval(() => {
