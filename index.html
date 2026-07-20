@@ -3,6 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
 <title>时钟</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -43,6 +48,11 @@
     0%   { background: #000; }
     100% { background: #4d2f00; }
   }
+  #wake-warn {
+    position: fixed; left: 4vw; bottom: 4vh;
+    font-size: 18px; color: #55555c;
+  }
+  #wake-warn[hidden] { display: none; }
 </style>
 </head>
 <body>
@@ -51,6 +61,7 @@
     <div id="date"></div>
   </div>
   <button id="pomo-btn" hidden aria-label="番茄钟">▶</button>
+  <span id="wake-warn" hidden title="屏幕常亮不可用，请在设置中将自动锁定设为永不">☾ 常亮未生效</span>
 
 <script type="module">
 import {
@@ -144,6 +155,27 @@ setInterval(() => {
   const dy = Math.round(Math.random() * 16 - 8);
   stage.style.transform = `translate(${dx}px, ${dy}px)`;
 }, 60000);
+
+// ---- Screen Wake Lock：保持屏幕常亮，失败静默降级为角落提示 ----
+const wakeWarn = document.getElementById('wake-warn');
+let wakeLock = null;
+async function requestWakeLock() {
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeWarn.hidden = true;
+    wakeLock.addEventListener('release', () => { wakeWarn.hidden = false; });
+  } catch {
+    wakeWarn.hidden = false;
+  }
+}
+if ('wakeLock' in navigator) {
+  requestWakeLock();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') requestWakeLock();
+  });
+} else {
+  wakeWarn.hidden = false;
+}
 </script>
 </body>
 </html>
