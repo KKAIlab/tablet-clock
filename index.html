@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#000000">
@@ -11,7 +11,9 @@
 <title>时钟</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { height: 100%; }
+  /* touch-action: manipulation 关键修复——去掉 iOS 双击缩放判定，
+     否则快速连点会被当成缩放手势，click 永远不派发 */
+  html, body { height: 100%; touch-action: manipulation; }
   body {
     background: #000;
     color: #e8e8ec;
@@ -35,10 +37,14 @@
     margin-top: 3vh;
   }
   #pomo-btn {
-    position: fixed; right: 4vw; bottom: 4vh;
-    width: 56px; height: 56px; border-radius: 50%;
-    border: 1px solid #333; background: transparent; color: #9a9aa2;
-    font-size: 22px; opacity: 0.5;
+    /* 加大并抬离屏幕底缘：iPad 底部是系统手势区，贴边点按可能被系统吃掉 */
+    position: fixed;
+    right: calc(5vw + env(safe-area-inset-right));
+    bottom: calc(7vh + env(safe-area-inset-bottom));
+    width: 76px; height: 76px; border-radius: 50%;
+    border: 1.5px solid #333; background: rgba(255,255,255,0.04); color: #9a9aa2;
+    font-size: 26px;
+    touch-action: manipulation;
   }
   #pomo-btn[hidden] { display: none; }
   body.mode-focus #time { color: #ff9f0a; }
@@ -136,17 +142,19 @@ pomoBtn.addEventListener('click', (e) => {
   dispatch('toggle');  // idle → running
 });
 
-// 单击/双击并存：单击延迟 250ms 执行，双击到来则取消，避免暂停/继续闪一下
-let clickTimer = null;
-document.body.addEventListener('click', () => {
+// 单击/双击并存：iOS Safari 不触发 dblclick 事件，因此自实现点按计数——
+// 300ms 窗口内 1 次 = 暂停/继续，≥2 次 = 重置
+let tapCount = 0, tapTimer = null;
+document.body.addEventListener('click', (e) => {
+  if (e.target === pomoBtn) return; // ▶ 按钮单独处理
   if (pomo.phase === 'idle') return;
   if (pomo.phase === 'done') { dispatch('toggle'); return; } // 任意点击关闭提醒
-  clearTimeout(clickTimer);
-  clickTimer = setTimeout(() => dispatch('toggle'), 250);
-});
-document.body.addEventListener('dblclick', () => {
-  clearTimeout(clickTimer);
-  if (pomo.phase !== 'idle') dispatch('reset');
+  tapCount++;
+  clearTimeout(tapTimer);
+  tapTimer = setTimeout(() => {
+    const n = tapCount; tapCount = 0;
+    if (n >= 2) dispatch('reset'); else dispatch('toggle');
+  }, 300);
 });
 
 // 防烧屏：每分钟整体随机位移 ±8px
