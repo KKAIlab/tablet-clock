@@ -28,13 +28,16 @@
 
 ```
 tablet-clock/
-├── index.html            # 全部 HTML/CSS/JS 内联，零依赖零构建
+├── index.html             # 页面结构 + 样式 + DOM 胶水代码（内联）
+├── logic.js               # 纯逻辑 ES module：时间格式化 + 番茄钟状态机（无 DOM）
 ├── manifest.webmanifest   # display: fullscreen，横竖屏均可
 ├── icon.png               # 主屏幕图标 (512×512)
+├── tests/logic.test.mjs   # node --test 直接跑，零测试框架依赖
 └── docs/superpowers/...   # 设计文档与计划
 ```
 
-单文件 vanilla JS，无框架。逻辑上分三个模块（同文件内以函数/对象划分）：
+vanilla JS，无框架。纯逻辑拆到 `logic.js` 使其可被 node 直接测试，
+页面通过 `<script type="module">` 引入。逻辑上分三个模块：
 
 1. **clock**：每 250ms 读系统时间（`new Date()`），更新时间与日期 DOM。
    秒变化才写 DOM，避免无效重绘。
@@ -69,8 +72,8 @@ tablet-clock/
 
 ## 测试与验证
 
-- 番茄钟状态机拆为纯函数（输入事件 → 新状态），页面内联同时
-  可被 node 直接跑的最小断言脚本覆盖（`tests/pomodoro.test.mjs`）
+- 番茄钟状态机与时间格式化为纯函数（输入事件 → 新状态），
+  由 `tests/logic.test.mjs` 覆盖（node 内置 test runner，零框架依赖）
 - 视觉与常亮行为：Mac Chrome 手动验证 + iPad Safari 实测
 
 ## 部署
