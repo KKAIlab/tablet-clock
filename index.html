@@ -183,6 +183,7 @@ const stage = $('stage'), pomoBtn = $('pomo-btn'), wakeWarn = $('wake-warn');
 
 const RING_CIRC = 2 * Math.PI * 46;
 
+const BUILD = 'v3-20260721a';
 let pomo = createIdle();
 window.__pomoPhase = () => pomo.phase; // 调试钩子：供自动化测试读取状态机相位
 
@@ -322,6 +323,24 @@ if ('wakeLock' in navigator) {
   });
 } else {
   wakeWarn.hidden = false;
+}
+
+// ---- 远程排障：URL 带 ?debug 时显示诊断面板（对用户设备上的问题取证）----
+if (location.search.includes('debug')) {
+  const panel = document.createElement('div');
+  panel.style.cssText =
+    'position:fixed;top:10px;left:10px;z-index:99;font:12px/1.7 monospace;' +
+    'color:#aab;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:8px;' +
+    'max-width:86vw;pointer-events:none;white-space:pre-wrap;word-break:break-all';
+  document.body.appendChild(panel);
+  let taps = 0, btnTaps = 0;
+  document.addEventListener('click', () => { taps++; }, true);
+  pomoBtn.addEventListener('click', () => { btnTaps++; });
+  setInterval(() => {  // 用 setInterval 而非 rAF，确保后台/异常时面板仍更新
+    panel.textContent =
+      `BUILD ${BUILD}\nphase: ${pomo.phase}\n` +
+      `clicks: ${taps}  btn: ${btnTaps}\n${navigator.userAgent}`;
+  }, 500);
 }
 </script>
 </body>
