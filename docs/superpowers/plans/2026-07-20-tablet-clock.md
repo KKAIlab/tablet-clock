@@ -121,7 +121,7 @@ test('formatCountdown 秒向上取整', () => {
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `cd /Users/chenbio/tablet-clock && node --test tests/`
+Run: `cd /Users/chenbio/tablet-clock && node --test tests/logic.test.mjs`
 Expected: FAIL — `Cannot find module '../logic.js'`
 
 - [ ] **Step 3: 写最小实现**
@@ -186,7 +186,7 @@ export function formatCountdown(ms) {
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `cd /Users/chenbio/tablet-clock && node --test tests/`
+Run: `cd /Users/chenbio/tablet-clock && node --test tests/logic.test.mjs`
 Expected: PASS — `# pass 11`，`# fail 0`
 
 - [ ] **Step 5: Commit**
@@ -448,7 +448,7 @@ setInterval(() => {
 
 - [ ] **Step 3: 回归测试 + 浏览器验证**
 
-Run: `cd /Users/chenbio/tablet-clock && node --test tests/`
+Run: `cd /Users/chenbio/tablet-clock && node --test tests/logic.test.mjs`
 Expected: PASS（逻辑未动，确认没改坏）
 
 浏览器 `http://localhost:8765/` 验收（验证时可临时把 `POMODORO_MS` 缩短——**只许在浏览器 console 里改 DOM/等待，不许改 logic.js**；等 25 分钟不现实，改用 console 验证 done 态：`document.body.classList.add('mode-done')` 看闪烁样式）：
@@ -574,7 +574,7 @@ if ('wakeLock' in navigator) {
 
 - [ ] **Step 4: 回归 + 浏览器验证**
 
-Run: `cd /Users/chenbio/tablet-clock && node --test tests/`
+Run: `cd /Users/chenbio/tablet-clock && node --test tests/logic.test.mjs`
 Expected: PASS
 
 浏览器 `http://localhost:8765/` 验收：
@@ -631,7 +631,7 @@ iPad 全屏桌面时钟：大字数字钟 + 日期星期 + 25 分钟番茄钟。
 
 ## 开发
 
-- 逻辑测试：`node --test tests/`
+- 逻辑测试：`node --test tests/logic.test.mjs`
 - 本地预览：`python3 -m http.server 8765`
 - 改完 push 到 main 即自动更新线上
 ```
