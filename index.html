@@ -10,18 +10,27 @@
 <link rel="apple-touch-icon" href="icon.png">
 <title>时钟</title>
 <style>
+  /* ---- 阴阳主题：全部颜色经 CSS 变量流转，JS 按一天时刻在夜(阴)/昼(阳)两套之间连续插值 ---- */
+  :root {
+    --bg0: hsl(232 30% 9%);   /* 背景内核 */
+    --bg1: hsl(232 35% 5%);   /* 背景中层 */
+    --bg2: hsl(232 50% 2%);   /* 背景边缘 */
+    --fg: #f2f3f7;            /* 主体 */
+    --dim: #7c8095;           /* 次要 */
+    --faint: #454a5e;         /* 最弱提示 */
+    --track: #1c2030;         /* 阴轨（未至之时） */
+    --accent: #ffa63e;        /* 番茄钟琥珀 */
+    --glow: hsl(232 60% 60% / 0.10);
+  }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   /* touch-action: manipulation 关键修复——去掉 iOS 双击缩放判定，
      否则快速连点会被当成缩放手势，click 永远不派发 */
   html, body { height: 100%; touch-action: manipulation; }
   body {
-    /* --h 由 JS 按一天中的时刻缓慢漂移：深夜靛蓝 → 白昼青蓝 → 黄昏经紫粉滑向琥珀 */
     background:
       radial-gradient(ellipse 95% 75% at 50% 36%,
-        hsl(var(--h, 232) 30% 9%) 0%,
-        hsl(var(--h, 232) 35% 5%) 48%,
-        #010208 100%);
-    color: #f2f3f7;
+        var(--bg0) 0%, var(--bg1) 48%, var(--bg2) 100%);
+    color: var(--fg);
     font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "PingFang SC", sans-serif;
     display: flex; align-items: center; justify-content: center;
     overflow: hidden;
@@ -34,8 +43,7 @@
     position: fixed; left: 50%; top: 38%;
     width: 92vw; height: 64vh;
     transform: translate(-50%, -50%);
-    background: radial-gradient(closest-side,
-      hsl(var(--h, 232) 60% 60% / 0.10), transparent 72%);
+    background: radial-gradient(closest-side, var(--glow), transparent 72%);
     animation: breathe 7s ease-in-out infinite;
     pointer-events: none;
   }
@@ -54,47 +62,63 @@
     line-height: 1;
     letter-spacing: 0.01em;
     font-variant-numeric: tabular-nums;
+    display: inline-flex; align-items: center;
   }
+  /* 冒号化作阴阳双点：上·实(阳)与下·虚(阴)随呼吸此消彼长 */
   #time .colon {
-    animation: colonbreathe 2s ease-in-out infinite;
-    position: relative; top: -0.06em;
+    display: inline-flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    gap: 0.17em; width: 0.44em; height: 1em;
+    position: relative; top: -0.04em;
   }
-  @keyframes colonbreathe { 0%, 100% { opacity: 1; } 50% { opacity: .22; } }
+  #time .cd { width: 0.075em; height: 0.075em; border-radius: 50%; }
+  #time .cd.yang { background: var(--fg); animation: waxwane 4s ease-in-out infinite; }
+  #time .cd.yin  { border: 0.014em solid var(--fg); animation: wanewax 4s ease-in-out infinite; }
+  @keyframes waxwane { 0%, 100% { opacity: 1; } 50% { opacity: .22; } }
+  @keyframes wanewax { 0%, 100% { opacity: .22; } 50% { opacity: 1; } }
 
-  /* 秒的具象：一条发丝线，每分钟从左到右缓缓填满——时间在流逝 */
+  /* 秒的两仪：已逝为明(阳)，未至为暗(阴)，交界的"太极眼"随时间游走 */
   #minute-line {
+    position: relative;
     width: min(58vw, 72vh);
     height: 2px; border-radius: 1px;
     margin-top: 6.5vh;
-    background: #1c2030;
-    overflow: hidden;
+    background: var(--track);
   }
   #minute-line .fill {
     display: block; width: 100%; height: 100%;
-    background: linear-gradient(90deg, hsl(var(--h, 232) 40% 70% / .55), #d9dbe6);
+    border-radius: 1px;
+    background: var(--fg); opacity: .78;
     transform-origin: left center;
     transform: scaleX(0);
+  }
+  #minute-line .eye {
+    position: absolute; top: 50%; left: 0;
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--fg);
+    box-shadow: 0 0 9px 1px color-mix(in srgb, var(--fg) 55%, transparent);
+    transform: translate(-50%, -50%);
   }
 
   #date {
     font-size: clamp(15px, 2.2vw, 4.2vh);
     font-weight: 300;
-    color: #7c8095;
+    color: var(--dim);
     letter-spacing: 0.42em; text-indent: 0.42em;  /* indent 抵消末字符字距，保持视觉居中 */
     margin-top: 5.5vh;
   }
 
-  /* ---- 番茄钟视图：极细圆环 ---- */
+  /* ---- 番茄钟视图：极细圆环，弧退轨进即是消长 ---- */
   #pomo-view { display: flex; flex-direction: column; align-items: center; }
   #pomo-view[hidden], #clock-view[hidden] { display: none; }
   #ring-wrap { position: relative; width: min(52vw, 62vh); }
   #ring { width: 100%; height: auto; display: block; transform: rotate(-90deg); }
-  #ring .bg { fill: none; stroke: #1c2030; stroke-width: 0.8; }
+  #ring .bg { fill: none; stroke: var(--track); stroke-width: 0.8; }
   #ring .fg {
-    fill: none; stroke: #ffa63e; stroke-width: 0.8; stroke-linecap: round;
+    fill: none; stroke: var(--accent); stroke-width: 0.8; stroke-linecap: round;
     stroke-dasharray: 289.03;  /* 2π × 46，与 r=46 对应 */
   }
-  body.mode-paused #ring .fg { stroke: #7c8095; }
+  body.mode-paused #ring .fg { stroke: var(--dim); }
   #pomo-time {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
@@ -102,11 +126,11 @@
     font-weight: 100;
     font-variant-numeric: tabular-nums;
   }
-  body.mode-paused #pomo-time { color: #7c8095; }
+  body.mode-paused #pomo-time { color: var(--dim); }
   #pomo-status {
     font-size: clamp(14px, 1.9vw, 3.6vh);
     font-weight: 300;
-    color: #7c8095;
+    color: var(--dim);
     letter-spacing: 0.42em; text-indent: 0.42em;
     margin-top: 5vh;
   }
@@ -114,7 +138,7 @@
   /* 结束提醒：柔和的琥珀色呼吸，而非生硬闪屏 */
   body.mode-done::after {
     content: ''; position: fixed; inset: 0;
-    background: #ffa63e; pointer-events: none;
+    background: var(--accent); pointer-events: none;
     animation: doneglow 1.1s ease-in-out infinite alternate;
   }
   @keyframes doneglow { from { opacity: 0; } to { opacity: .16; } }
@@ -125,7 +149,7 @@
     right: calc(5vw + env(safe-area-inset-right));
     bottom: calc(7vh + env(safe-area-inset-bottom));
     width: 76px; height: 76px; border-radius: 50%;
-    border: 1.5px solid #262b3d; background: rgba(255,255,255,0.03); color: #7c8095;
+    border: 1.5px solid var(--track); background: rgba(127,127,127,0.06); color: var(--dim);
     font-size: 24px;
     touch-action: manipulation;
     transition: opacity 1s ease;
@@ -136,12 +160,12 @@
     position: fixed;
     left: calc(5vw + env(safe-area-inset-left));
     bottom: calc(7vh + env(safe-area-inset-bottom));
-    font-size: 16px; color: #454a5e;
+    font-size: 16px; color: var(--faint);
   }
   #wake-warn[hidden] { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
-    #glow, #time .colon, body.mode-done::after { animation: none; }
+    #glow, #time .cd, body.mode-done::after { animation: none; }
   }
 </style>
 </head>
@@ -149,8 +173,8 @@
   <div id="glow"></div>
   <div id="stage">
     <div id="clock-view">
-      <div id="time"><span id="hh">--</span><span class="colon">:</span><span id="mm">--</span></div>
-      <div id="minute-line"><span class="fill"></span></div>
+      <div id="time"><span id="hh">--</span><span class="colon" aria-hidden="true"><i class="cd yang"></i><i class="cd yin"></i></span><span id="mm">--</span></div>
+      <div id="minute-line"><span class="fill"></span><span class="eye"></span></div>
       <div id="date"></div>
     </div>
     <div id="pomo-view" hidden>
@@ -177,13 +201,14 @@ const $ = (id) => document.getElementById(id);
 const hhEl = $('hh'), mmEl = $('mm'), dateEl = $('date');
 const clockView = $('clock-view'), pomoView = $('pomo-view');
 const lineFill = document.querySelector('#minute-line .fill');
+const lineEye = document.querySelector('#minute-line .eye');
 const ringFg = document.querySelector('#ring .fg');
 const pomoTimeEl = $('pomo-time'), pomoStatusEl = $('pomo-status');
 const stage = $('stage'), pomoBtn = $('pomo-btn'), wakeWarn = $('wake-warn');
 
 const RING_CIRC = 2 * Math.PI * 46;
 
-const BUILD = 'v3-20260721a';
+const BUILD = 'v4-yinyang-0721';
 let pomo = createIdle();
 window.__pomoPhase = () => pomo.phase; // 调试钩子：供自动化测试读取状态机相位
 
@@ -193,21 +218,49 @@ function setText(el, s) {
   if (textCache.get(el) !== s) { el.textContent = s; textCache.set(el, s); }
 }
 
-// ---- 一天之中的色相漂移 ----
-// 关键帧（小时 → 色相，允许 >360 以规定插值走向）：
-// 深夜靛蓝 232 → 清晨过渡到白昼青蓝 204 → 黄昏沿紫→粉→琥珀(390≡30) → 入夜回到靛蓝(592≡232)
+// ---- 阴阳主题引擎 ----
+// 色相：深夜靛蓝 232 → 白昼青蓝 204 → 黄昏沿紫→粉→琥珀(390≡30) → 入夜回靛蓝(592≡232)
 const HUE_STOPS = [[0, 232], [5, 232], [7.5, 204], [15.5, 204], [18.5, 390], [20.5, 592], [24, 592]];
-function hueAt(hourFloat) {
-  for (let i = 1; i < HUE_STOPS.length; i++) {
-    const [h0, v0] = HUE_STOPS[i - 1], [h1, v1] = HUE_STOPS[i];
-    if (hourFloat <= h1) return (v0 + (v1 - v0) * (hourFloat - h0) / (h1 - h0)) % 360;
+// 阳值：0=纯阴(夜) 1=纯阳(昼)，黎明 5:00-7:30 渐醒，黄昏 17:00-20:00 渐眠
+const YANG_STOPS = [[0, 0], [5, 0], [7.5, 1], [17, 1], [20, 0], [24, 0]];
+
+function stopsAt(stops, x) {
+  for (let i = 1; i < stops.length; i++) {
+    const [x0, v0] = stops[i - 1], [x1, v1] = stops[i];
+    if (x <= x1) return v0 + (v1 - v0) * (x - x0) / (x1 - x0);
   }
-  return 232;
+  return stops[stops.length - 1][1];
 }
-let lastHue = -1;
-function updateHue(now) {
-  const hue = Math.round(hueAt(now.getHours() + now.getMinutes() / 60));
-  if (hue !== lastHue) { document.body.style.setProperty('--h', hue); lastHue = hue; }
+const lerp = (a, b, t) => a + (b - a) * t;
+const mixHex = (a, b, t) => {
+  const ch = (s, i) => parseInt(s.slice(i, i + 2), 16);
+  return '#' + [1, 3, 5].map((i) =>
+    Math.round(lerp(ch(a, i), ch(b, i), t)).toString(16).padStart(2, '0')).join('');
+};
+
+// 夜(阴)/昼(阳)两套饱和度-亮度与文字色，t 为阳值
+function applyTheme(hourFloat) {
+  const h = Math.round(stopsAt(HUE_STOPS, hourFloat) % 360);
+  const t = stopsAt(YANG_STOPS, hourFloat);
+  const st = document.body.style;
+  const hsl = (s0, l0, s1, l1) =>
+    `hsl(${h} ${lerp(s0, s1, t).toFixed(1)}% ${lerp(l0, l1, t).toFixed(1)}%)`;
+  st.setProperty('--bg0', hsl(30, 9, 24, 93));
+  st.setProperty('--bg1', hsl(35, 5, 20, 88));
+  st.setProperty('--bg2', hsl(50, 2, 16, 82));
+  st.setProperty('--track', hsl(26, 15, 14, 78));
+  st.setProperty('--fg', mixHex('#f2f3f7', '#191b24', t));
+  st.setProperty('--dim', mixHex('#7c8095', '#5d6070', t));
+  st.setProperty('--faint', mixHex('#454a5e', '#9a9dab', t));
+  st.setProperty('--accent', mixHex('#ffa63e', '#d97a06', t));
+  st.setProperty('--glow', `hsl(${h} ${lerp(60, 70, t)}% ${lerp(60, 55, t)}% / ${lerp(0.10, 0.14, t).toFixed(2)})`);
+}
+let forceHour = null, lastThemeKey = -1;
+window.__forceHour = (v) => { forceHour = v; lastThemeKey = -1; }; // 调试钩子：预览任意时刻主题
+function updateTheme(now) {
+  const hf = forceHour != null ? forceHour : now.getHours() + now.getMinutes() / 60;
+  const key = Math.round(hf * 120); // 30 秒粒度，过渡肉眼无级
+  if (key !== lastThemeKey) { applyTheme(hf); lastThemeKey = key; }
 }
 
 // ---- 提示音：iOS 需用户交互后解锁 AudioContext，在点击 ▶ 时初始化 ----
@@ -254,9 +307,10 @@ function frame() {
     const [h, m] = formatTime(now).split(':');
     setText(hhEl, h); setText(mmEl, m);
     setText(dateEl, formatDateLine(now));
-    // 秒的流逝：0→60 秒连续填满发丝线
+    // 秒的流逝：0→60 秒连续填满，太极眼走在明暗交界
     const p = (now.getSeconds() + now.getMilliseconds() / 1000) / 60;
     lineFill.style.transform = `scaleX(${p.toFixed(4)})`;
+    lineEye.style.left = `${(p * 100).toFixed(3)}%`;
   } else {
     const rem = pomo.phase === 'done' ? 0 : remainingMs(pomo, now.getTime());
     setText(pomoTimeEl, formatCountdown(rem));
@@ -267,7 +321,7 @@ function frame() {
     const frac = rem / POMODORO_MS;
     ringFg.style.strokeDashoffset = String(RING_CIRC * (1 - frac));
   }
-  updateHue(now);
+  updateTheme(now);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
@@ -277,8 +331,34 @@ requestAnimationFrame(frame);
 setInterval(() => dispatch('tick'), 1000);
 
 // ---- 交互 ----
-pomoBtn.addEventListener('click', (e) => {
-  e.stopPropagation();
+// 触控加固：不依赖 click 合成。iOS 上 click 是触摸后"合成"出来的高层事件，
+// 可能被手势判定吞掉；pointerup 是底层触摸信号，必然派发。
+// pointerdown→up 位移超过 12px 视为拖动而非点按。
+function onTap(el, handler) {
+  if ('PointerEvent' in window) {
+    let downX = 0, downY = 0, lastPointer = 0;
+    el.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
+    el.addEventListener('pointerup', (e) => {
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 12) return;
+      lastPointer = Date.now();
+      handler(e);
+    });
+    // 键盘(Enter/Space)与程序化 click 仍生效；紧邻 pointerup 的合成 click 去重
+    el.addEventListener('click', (e) => {
+      if (Date.now() - lastPointer < 500) return;
+      handler(e);
+    });
+  } else {
+    let lastTouch = 0;
+    el.addEventListener('touchend', (e) => { lastTouch = Date.now(); handler(e); });
+    el.addEventListener('click', (e) => {  // 触摸后的合成 click 去重，纯鼠标正常通过
+      if (Date.now() - lastTouch < 700) return;
+      handler(e);
+    });
+  }
+}
+
+onTap(pomoBtn, () => {
   ensureAudio();
   dispatch('toggle');  // idle → running
 });
@@ -286,8 +366,8 @@ pomoBtn.addEventListener('click', (e) => {
 // 单击/双击并存：iOS Safari 不触发 dblclick 事件，因此自实现点按计数——
 // 350ms 窗口内 1 次 = 暂停/继续，≥2 次 = 重置
 let tapCount = 0, tapTimer = null;
-document.body.addEventListener('click', (e) => {
-  if (e.target === pomoBtn) return; // ▶ 按钮单独处理
+onTap(document.body, (e) => {
+  if (pomoBtn.contains(e.target)) return; // ▶ 按钮单独处理（不靠 stopPropagation）
   if (pomo.phase === 'idle') return;
   if (pomo.phase === 'done') { dispatch('toggle'); return; } // 任意点击关闭提醒
   tapCount++;
@@ -333,13 +413,14 @@ if (location.search.includes('debug')) {
     'color:#aab;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:8px;' +
     'max-width:86vw;pointer-events:none;white-space:pre-wrap;word-break:break-all';
   document.body.appendChild(panel);
-  let taps = 0, btnTaps = 0;
+  let taps = 0, pups = 0, btnTaps = 0;
   document.addEventListener('click', () => { taps++; }, true);
-  pomoBtn.addEventListener('click', () => { btnTaps++; });
+  document.addEventListener('pointerup', () => { pups++; }, true);
+  pomoBtn.addEventListener('pointerup', () => { btnTaps++; });
   setInterval(() => {  // 用 setInterval 而非 rAF，确保后台/异常时面板仍更新
     panel.textContent =
       `BUILD ${BUILD}\nphase: ${pomo.phase}\n` +
-      `clicks: ${taps}  btn: ${btnTaps}\n${navigator.userAgent}`;
+      `pointerup: ${pups}  click: ${taps}  btn: ${btnTaps}\n${navigator.userAgent}`;
   }, 500);
 }
 </script>
