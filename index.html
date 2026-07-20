@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>时钟</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    background: #000;
+    color: #e8e8ec;
+    font-family: -apple-system, "SF Pro Display", "Helvetica Neue", "PingFang SC", sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+    -webkit-user-select: none; user-select: none;
+  }
+  #stage { text-align: center; transition: transform 2s ease; }
+  #time {
+    font-size: clamp(80px, 21vw, 40vh);
+    font-weight: 200;
+    line-height: 1;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+  }
+  #date {
+    font-size: clamp(20px, 3.5vw, 7vh);
+    font-weight: 300;
+    color: #9a9aa2;
+    margin-top: 3vh;
+  }
+  #pomo-btn {
+    position: fixed; right: 4vw; bottom: 4vh;
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 1px solid #333; background: transparent; color: #9a9aa2;
+    font-size: 22px; opacity: 0.5;
+  }
+  #pomo-btn[hidden] { display: none; }
+</style>
+</head>
+<body>
+  <div id="stage">
+    <div id="time">--:--:--</div>
+    <div id="date"></div>
+  </div>
+  <button id="pomo-btn" hidden aria-label="番茄钟">▶</button>
+
+<script type="module">
+import { formatTime, formatDateLine } from './logic.js';
+
+const timeEl = document.getElementById('time');
+const dateEl = document.getElementById('date');
+const stage = document.getElementById('stage');
+
+let lastTime = '', lastDate = '';
+function render() {
+  const now = new Date();
+  const t = formatTime(now);
+  const d = formatDateLine(now);
+  if (t !== lastTime) { timeEl.textContent = t; lastTime = t; }   // 秒变才写 DOM
+  if (d !== lastDate) { dateEl.textContent = d; lastDate = d; }
+}
+render();
+setInterval(render, 250);
+
+// 防烧屏：每分钟整体随机位移 ±8px
+setInterval(() => {
+  const dx = Math.round(Math.random() * 16 - 8);
+  const dy = Math.round(Math.random() * 16 - 8);
+  stage.style.transform = `translate(${dx}px, ${dy}px)`;
+}, 60000);
+</script>
+</body>
+</html>
