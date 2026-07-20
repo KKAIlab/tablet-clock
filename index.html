@@ -68,10 +68,11 @@
 
   /* ---- 时钟视图 ---- */
   #time {
-    font-size: clamp(96px, 26vw, 46vh);
-    font-weight: 100;
+    /* 浓墨：数字取重笔，与淡墨秒线形成浓淡对比 */
+    font-size: clamp(90px, 23vw, 42vh);
+    font-weight: 600;
     line-height: 1;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.015em;
     font-variant-numeric: tabular-nums;
     display: inline-flex; align-items: center;
   }
@@ -82,7 +83,7 @@
     gap: 0.17em; width: 0.44em; height: 1em;
     position: relative; top: -0.04em;
   }
-  #time .cd { width: 0.075em; height: 0.075em; border-radius: 50%; }
+  #time .cd { width: 0.09em; height: 0.09em; border-radius: 50%; }
   #time .cd.yang { background: var(--fg); animation: waxwane 4s ease-in-out infinite; }
   #time .cd.yin  { border: 0.014em solid var(--fg); animation: wanewax 4s ease-in-out infinite; }
   @keyframes waxwane { 0%, 100% { opacity: 1; } 50% { opacity: .22; } }
@@ -133,8 +134,9 @@
   #pomo-time {
     position: absolute; inset: 0;
     display: flex; align-items: center; justify-content: center;
-    font-size: clamp(60px, 12vw, 21vh);
-    font-weight: 100;
+    font-size: clamp(60px, 11vw, 20vh);
+    font-weight: 600;
+    letter-spacing: -0.015em;
     font-variant-numeric: tabular-nums;
   }
   body.mode-paused #pomo-time { color: var(--dim); }
@@ -155,14 +157,16 @@
   @keyframes doneglow { from { opacity: 0; } to { opacity: .16; } }
 
   #pomo-btn {
-    /* 朱印：整幅水墨唯一的色彩。
+    /* 阳文朱印：实心朱砂、纸色刻字，整幅水墨唯一的色彩。
        抬离屏幕底缘：iPad 底部是系统手势区，贴边点按可能被系统吃掉 */
     position: fixed;
     right: calc(5vw + env(safe-area-inset-right));
     bottom: calc(7vh + env(safe-area-inset-bottom));
-    width: 72px; height: 72px; border-radius: 16px;
-    border: 1.5px solid var(--accent); background: transparent; color: var(--accent);
-    font-size: 22px; opacity: 0.85;
+    width: 72px; height: 72px; border-radius: 14px;
+    border: none; background: var(--accent); color: #f4efe4;
+    font-size: 19px; font-weight: 500; letter-spacing: 0.12em; text-indent: 0.12em;
+    font-family: inherit;
+    opacity: 0.95;
     touch-action: manipulation;
     transition: opacity 1s ease;
   }
@@ -200,7 +204,7 @@
       <div id="pomo-status"></div>
     </div>
   </div>
-  <button id="pomo-btn" hidden aria-label="番茄钟">▶</button>
+  <button id="pomo-btn" hidden aria-label="开始番茄钟">专注</button>
   <span id="wake-warn" hidden title="屏幕常亮不可用，请在设置中将自动锁定设为永不">☾ 常亮未生效</span>
 
 <script type="module">
@@ -220,7 +224,7 @@ const stage = $('stage'), pomoBtn = $('pomo-btn'), wakeWarn = $('wake-warn');
 
 const RING_CIRC = 2 * Math.PI * 46;
 
-const BUILD = 'v6-inkwash-0721';
+const BUILD = 'v7-nongmo-0721';
 let pomo = createIdle();
 window.__pomoPhase = () => pomo.phase; // 调试钩子：供自动化测试读取状态机相位
 
