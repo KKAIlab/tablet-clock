@@ -5,22 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#010208">
+<meta name="theme-color" content="#0e1013">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon.png">
 <title>时钟</title>
 <style>
   /* ---- 阴阳主题：全部颜色经 CSS 变量流转，JS 按一天时刻在夜(阴)/昼(阳)两套之间连续插值 ---- */
   :root {
-    --bg0: hsl(232 30% 9%);   /* 背景内核 */
-    --bg1: hsl(232 35% 5%);   /* 背景中层 */
-    --bg2: hsl(232 50% 2%);   /* 背景边缘 */
-    --fg: #f2f3f7;            /* 主体 */
-    --dim: #7c8095;           /* 次要 */
-    --faint: #454a5e;         /* 最弱提示 */
-    --track: #1c2030;         /* 阴轨（未至之时） */
-    --accent: #ffa63e;        /* 番茄钟琥珀 */
-    --glow: hsl(232 60% 60% / 0.10);
+    /* 水墨阴阳：夜=青墨池(阴)，昼=宣纸(阳)，全局唯一色彩是朱砂印 */
+    --bg0: #16181d;           /* 背景内核 */
+    --bg1: #0e1013;           /* 背景中层 */
+    --bg2: #070808;           /* 背景边缘 */
+    --fg: #eae6da;            /* 主体（纸色淡墨白） */
+    --dim: #857f72;           /* 次要 */
+    --faint: #4f4b42;         /* 最弱提示 */
+    --track: #262823;         /* 阴轨（未至之时） */
+    --accent: #cf4a2e;        /* 朱砂 */
+    --glow: rgba(90, 110, 130, 0.10);
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   /* touch-action: manipulation 关键修复——去掉 iOS 双击缩放判定，
@@ -38,16 +39,26 @@
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* 呼吸柔光：7 秒一息，近似静息呼吸节律 */
+  /* 宣纸肌理：一层极淡的噪点，给纸以"牙口" */
+  body::before {
+    content: ''; position: fixed; inset: 0; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2'/%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+    opacity: 0.035;
+  }
+
+  /* 墨晕呼吸：两团错位的淡墨复合成不规则墨团，7 秒一息——
+     "浓墨堆积处如胸腔起伏，飞白空隙似气息流转" */
   #glow {
     position: fixed; left: 50%; top: 38%;
     width: 92vw; height: 64vh;
     transform: translate(-50%, -50%);
-    background: radial-gradient(closest-side, var(--glow), transparent 72%);
+    background:
+      radial-gradient(42% 55% at 38% 44%, var(--glow), transparent 70%),
+      radial-gradient(50% 40% at 63% 57%, var(--glow), transparent 72%);
     animation: breathe 7s ease-in-out infinite;
     pointer-events: none;
   }
-  @keyframes breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+  @keyframes breathe { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
 
   #stage {
     position: relative; text-align: center;
@@ -144,13 +155,14 @@
   @keyframes doneglow { from { opacity: 0; } to { opacity: .16; } }
 
   #pomo-btn {
-    /* 抬离屏幕底缘：iPad 底部是系统手势区，贴边点按可能被系统吃掉 */
+    /* 朱印：整幅水墨唯一的色彩。
+       抬离屏幕底缘：iPad 底部是系统手势区，贴边点按可能被系统吃掉 */
     position: fixed;
     right: calc(5vw + env(safe-area-inset-right));
     bottom: calc(7vh + env(safe-area-inset-bottom));
-    width: 76px; height: 76px; border-radius: 50%;
-    border: 1.5px solid var(--track); background: rgba(127,127,127,0.06); color: var(--dim);
-    font-size: 24px;
+    width: 72px; height: 72px; border-radius: 16px;
+    border: 1.5px solid var(--accent); background: transparent; color: var(--accent);
+    font-size: 22px; opacity: 0.85;
     touch-action: manipulation;
     transition: opacity 1s ease;
   }
@@ -208,7 +220,7 @@ const stage = $('stage'), pomoBtn = $('pomo-btn'), wakeWarn = $('wake-warn');
 
 const RING_CIRC = 2 * Math.PI * 46;
 
-const BUILD = 'v5-0721';
+const BUILD = 'v6-inkwash-0721';
 let pomo = createIdle();
 window.__pomoPhase = () => pomo.phase; // 调试钩子：供自动化测试读取状态机相位
 
@@ -218,9 +230,8 @@ function setText(el, s) {
   if (textCache.get(el) !== s) { el.textContent = s; textCache.set(el, s); }
 }
 
-// ---- 阴阳主题引擎 ----
-// 色相：深夜靛蓝 232 → 白昼青蓝 204 → 黄昏沿紫→粉→琥珀(390≡30) → 入夜回靛蓝(592≡232)
-const HUE_STOPS = [[0, 232], [5, 232], [7.5, 204], [15.5, 204], [18.5, 390], [20.5, 592], [24, 592]];
+// ---- 水墨阴阳主题引擎 ----
+// 夜=青墨池(阴)，昼=宣纸(阳)，RGB 插值经过中性灰——正合水墨"墨分五色"的过渡
 // 阳值：0=纯阴(夜) 1=纯阳(昼)，黎明 5:00-7:30 渐醒，黄昏 17:00-20:00 渐眠
 const YANG_STOPS = [[0, 0], [5, 0], [7.5, 1], [17, 1], [20, 0], [24, 0]];
 
@@ -238,22 +249,22 @@ const mixHex = (a, b, t) => {
     Math.round(lerp(ch(a, i), ch(b, i), t)).toString(16).padStart(2, '0')).join('');
 };
 
-// 夜(阴)/昼(阳)两套饱和度-亮度与文字色，t 为阳值
+// 每个变量 [夜(阴), 昼(阳)]
+const PALETTE = {
+  bg0: ['#16181d', '#f2eee3'],  bg1: ['#0e1013', '#e9e4d6'],  bg2: ['#070808', '#ddd7c7'],
+  fg: ['#eae6da', '#262218'],   dim: ['#857f72', '#6e675a'],  faint: ['#4f4b42', '#a39c8c'],
+  track: ['#262823', '#cfc8b6'], accent: ['#cf4a2e', '#a83a24'],
+};
 function applyTheme(hourFloat) {
-  const h = Math.round(stopsAt(HUE_STOPS, hourFloat) % 360);
   const t = stopsAt(YANG_STOPS, hourFloat);
   const st = document.body.style;
-  const hsl = (s0, l0, s1, l1) =>
-    `hsl(${h} ${lerp(s0, s1, t).toFixed(1)}% ${lerp(l0, l1, t).toFixed(1)}%)`;
-  st.setProperty('--bg0', hsl(30, 9, 24, 93));
-  st.setProperty('--bg1', hsl(35, 5, 20, 88));
-  st.setProperty('--bg2', hsl(50, 2, 16, 82));
-  st.setProperty('--track', hsl(26, 15, 14, 78));
-  st.setProperty('--fg', mixHex('#f2f3f7', '#191b24', t));
-  st.setProperty('--dim', mixHex('#7c8095', '#5d6070', t));
-  st.setProperty('--faint', mixHex('#454a5e', '#9a9dab', t));
-  st.setProperty('--accent', mixHex('#ffa63e', '#d97a06', t));
-  st.setProperty('--glow', `hsl(${h} ${lerp(60, 70, t)}% ${lerp(60, 55, t)}% / ${lerp(0.10, 0.14, t).toFixed(2)})`);
+  for (const k of Object.keys(PALETTE)) {
+    st.setProperty('--' + k, mixHex(PALETTE[k][0], PALETTE[k][1], t));
+  }
+  // 墨晕：夜为青墨晕，昼为淡墨晕
+  st.setProperty('--glow',
+    `rgba(${Math.round(lerp(90, 120, t))}, ${Math.round(lerp(110, 105, t))}, ` +
+    `${Math.round(lerp(130, 80, t))}, ${lerp(0.10, 0.07, t).toFixed(3)})`);
 }
 let forceHour = null, lastThemeKey = -1;
 window.__forceHour = (v) => { forceHour = v; lastThemeKey = -1; }; // 调试钩子：预览任意时刻主题
