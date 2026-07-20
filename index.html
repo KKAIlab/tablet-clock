@@ -208,7 +208,7 @@ const stage = $('stage'), pomoBtn = $('pomo-btn'), wakeWarn = $('wake-warn');
 
 const RING_CIRC = 2 * Math.PI * 46;
 
-const BUILD = 'v4-yinyang-0721';
+const BUILD = 'v5-0721';
 let pomo = createIdle();
 window.__pomoPhase = () => pomo.phase; // 调试钩子：供自动化测试读取状态机相位
 
@@ -264,12 +264,18 @@ function updateTheme(now) {
 }
 
 // ---- 提示音：iOS 需用户交互后解锁 AudioContext，在点击 ▶ 时初始化 ----
+// 全程 try/catch：音频是锦上添花，任何失败都不允许阻断计时主流程
 let audioCtx = null;
 function ensureAudio() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  if (audioCtx.state === 'suspended') audioCtx.resume();
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch { audioCtx = null; }
 }
 function beep() {
+  try { beepUnsafe(); } catch { /* 静默 */ }
+}
+function beepUnsafe() {
   if (!audioCtx) return;
   const t0 = audioCtx.currentTime;
   for (let i = 0; i < 3; i++) {
@@ -339,7 +345,7 @@ function onTap(el, handler) {
     let downX = 0, downY = 0, lastPointer = 0;
     el.addEventListener('pointerdown', (e) => { downX = e.clientX; downY = e.clientY; });
     el.addEventListener('pointerup', (e) => {
-      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 12) return;
+      if (Math.hypot(e.clientX - downX, e.clientY - downY) > 24) return;
       lastPointer = Date.now();
       handler(e);
     });
@@ -359,8 +365,8 @@ function onTap(el, handler) {
 }
 
 onTap(pomoBtn, () => {
+  dispatch('toggle');  // idle → running；先启动计时，音频靠后
   ensureAudio();
-  dispatch('toggle');  // idle → running
 });
 
 // 单击/双击并存：iOS Safari 不触发 dblclick 事件，因此自实现点按计数——
@@ -413,14 +419,18 @@ if (location.search.includes('debug')) {
     'color:#aab;background:rgba(0,0,0,.55);padding:8px 12px;border-radius:8px;' +
     'max-width:86vw;pointer-events:none;white-space:pre-wrap;word-break:break-all';
   document.body.appendChild(panel);
-  let taps = 0, pups = 0, btnTaps = 0;
+  let taps = 0, pups = 0, tstarts = 0, btnTaps = 0, lastErr = '(无)';
   document.addEventListener('click', () => { taps++; }, true);
   document.addEventListener('pointerup', () => { pups++; }, true);
+  document.addEventListener('touchstart', () => { tstarts++; }, true);
   pomoBtn.addEventListener('pointerup', () => { btnTaps++; });
+  window.addEventListener('error', (e) => { lastErr = e.message; });
+  window.addEventListener('unhandledrejection', (e) => { lastErr = String(e.reason); });
   setInterval(() => {  // 用 setInterval 而非 rAF，确保后台/异常时面板仍更新
     panel.textContent =
       `BUILD ${BUILD}\nphase: ${pomo.phase}\n` +
-      `pointerup: ${pups}  click: ${taps}  btn: ${btnTaps}\n${navigator.userAgent}`;
+      `touch: ${tstarts}  pointerup: ${pups}  click: ${taps}  btn: ${btnTaps}\n` +
+      `err: ${lastErr}\n${navigator.userAgent}`;
   }, 500);
 }
 </script>
